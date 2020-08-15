@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/Elitward/WebDomainCrawler/issues"
   },
-  "homepage": "https://github.com/Elitward/WebDomainCrawler#readme"
+  "homepage": "https://github.com/Elitward/WebDomainCrawler#readme",
+  "dependencies": {
+    "crawler": "^1.2.2"
+  }
 }
