@@ -1,53 +1,117 @@
 var Crawler = require("crawler");
 var fs = require('fs');
+var path = require("path");
+var md5 = require('md5');
 
 const UserAgentName = "Eli's Crawler"
 const DefaultOutputPath = 'output/'
 
+// Key-Value pair, from Original URL to Saved Resource File: Resources[URL]=filename 
+// (if same URL is referenced more than one, it will make to same filename)
+const Resources = [];
+
+const GetResourceFilename = (url) => {
+    var basename = path.basename(url);
+    var extension = path.extname(url);
+    var urlMd5 = md5(url);
+    console.log("GetResourceFilename:" + urlMd5 + " ~ " + url);
+    return 'resource/' + urlMd5 + extension;
+
+    // if(basename.length>64){
+    //     basename = basename.substr(0, 60)
+    // }
+    // console.log("GetResourceFilename:" + basename + extension + " ~ " + url);
+    // return 'resource/' + basename + extension;
+}
+
 var c = new Crawler({
-    maxConnections : 10,
+    encoding:null,
+    maxConnections: 10,
 
     userAgent: UserAgentName, // to avoid "400 Bad Request" from SEDNA
 
     // This will be called for each crawled page
-    callback : function (error, res, done) {
-        if(error){
+    callback: function (error, res, done) {
+        if (error) {
             console.log(error);
-        }else{
-            var $ = res.$;
-            // $ is Cheerio by default
-            //a lean implementation of core jQuery designed specifically for the server
-            console.log($("title").text());
+        } else {
+            var basename = path.basename(res.url);
+            var filename = DefaultOutputPath + (res.options.filename ? res.options.filename : basename);
 
-            // var scripts = $("script");
-            // if(Array.isArray(scripts)) {
-            //     scripts.forEach(script => {
-            //         console.log("script", script);
-            //     });
-            // }
-            // if(typeof scripts === 'object'){
-            //     for (var key in scripts) {
-            //         if (scripts.hasOwnProperty(key)) {
-            //           // Do things here
-            //           console.log("script", key, scripts[key]);
-            //         }
-            //     }
-            // }
-
-            var scripts = $("script");
-            scripts.each(function(i, script) {
-                var src = $(script).attr("src");
-                console.log("script: " + src);
-            });
+            if (res.options && res.options.adjustHtml) {
+                var $ = res.$;
+                // $ is Cheerio by default
+                //a lean implementation of core jQuery designed specifically for the server
+                console.log($("title").text());
     
+                var scripts = $("script");
+                scripts.each(function (i, script) {
+                    var src = $(script).attr("src");
+                    if (src) {
+                        console.log("script:" + i + "-" + src + " (len=" + src.length + ")");
 
+                        var resFilename = GetResourceFilename(src);
+                        // update src
+                        $(script).attr("src", resFilename);
 
-            var filename = DefaultOutputPath + (res.options.filename ? res.options.filename : "index.html");
-            fs.createWriteStream(filename).write(res.body);
+                        c.queue(
+                            {
+                                url: src.startsWith("//") ? "https:" + src : src,
+                                filename: resFilename,
+                                adjustHtml: false
+                            }
+                        );
+                    }
+                });
+
+                var images = $("img");
+                images.each(function (i, image) {
+                    var src = $(image).attr("src");
+                    if (src) {
+                        console.log("image:" + i + "-" + src + " (len=" + src.length + ")");
+
+                        var resFilename = GetResourceFilename(src);
+                        // update src
+                        $(image).attr("src", resFilename);
+
+                        c.queue(
+                            {
+                                url: src.startsWith("//") ? "https:" + src : src,
+                                filename: resFilename,
+                                adjustHtml: false
+                            }
+                        );
+                    }
+                });
+
+                // direct save original content
+                if (filename) {
+                    var wstream = fs.createWriteStream(filename);
+                    wstream.write($.html());
+                    wstream.end();
+                }
+            } else {
+                // direct save original content
+                if(filename.indexOf('05c93ec2a0fe98201521103e900bcfcd')>0){
+                    var x = 0;
+                }
+                if (filename) {
+                    var wstream = fs.createWriteStream(filename, {encoding: 'binary'}) // type BufferEncoding = "ascii" | "utf8" | "utf-8" | "utf16le" | "ucs2" | "ucs-2" | "base64" | "latin1" | "binary" | "hex";
+                    wstream.write(res.body);
+                    wstream.end();
+                }
+            }
+
         }
         done();
     }
 });
- 
+
 // Queue just one URL, with default callback
-c.queue('https://www.sedna.com/');
+c.queue(
+    {
+        url: 'https://www.sedna.com/',
+        filename: 'index.html',
+        adjustHtml: true
+    }
+);
