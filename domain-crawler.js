@@ -1,7 +1,7 @@
-var Crawler = require("crawler");
-var fs = require('fs');
-var path = require("path");
-var ResourceManager = require("./resource-manager");
+const Crawler = require("crawler");
+const fs = require('fs');
+const path = require("path");
+const ResourceManager = require("./resource-manager");
 
 const UserAgentName = 'DomainCrawler';
 const DefaultOutputPath = 'output/'
@@ -10,7 +10,7 @@ const TAG_SCRIPT = 'script';
 const TAG_IMG = 'img';
 const ATTR_SRC = 'src';
 
-var rootUrl = '';
+let rootUrl = '';
 
 const getSubUrl = (Url) => {
     if (Url) {
@@ -58,9 +58,6 @@ const combineUrl = (root, add) => {
 }
 
 const saveFile = (filename, data) => {
-    if (filename.indexOf('sedna-and-how-to-succeed-at-remote-working') > 0) {
-        let stop = 0;
-    }
     const ensureDirectoryExistence = (dirname) => {
         if (fs.existsSync(dirname)) {
             return true;
@@ -79,7 +76,9 @@ const saveFile = (filename, data) => {
     wstream.end();
 }
 
-var crawler = new Crawler({
+let history = new Set()
+
+const crawler = new Crawler({
     encoding: null,
     maxonnections: 10,
     userAgent: UserAgentName, // to avoid "400 Bad Request" from SEDNA
@@ -91,16 +90,18 @@ var crawler = new Crawler({
         } else {
             let basename = path.basename(res.url);
             let filename = DefaultOutputPath + (res.options.filename ? res.options.filename : basename);
+            let curUrl = res.request.href;
+            console.log("Eli: URL " + curUrl);
 
             if (res.options && res.options.adjustHtml) {
                 let $ = res.$;
                 // $ is Cheerio by default
-                console.log($("title").text());
+                // console.log($("title").text());
 
                 const srcProcess = (i, aTag) => {
                     let src = $(aTag).attr(ATTR_SRC);
                     if (src) {
-                        console.log("aTag:" + i + "-" + src + " (len=" + src.length + ")");
+                        // console.log("aTag:" + i + "-" + src + " (len=" + src.length + ")");
 
                         let subUrl = getSubUrl(src);
                         if (!subUrl) { // full URL
@@ -108,13 +109,18 @@ var crawler = new Crawler({
                             // update src
                             $(aTag).attr(ATTR_SRC, resFilename);
 
-                            crawler.queue(
-                                {
-                                    url: src.startsWith("//") ? "https:" + src : src,
-                                    filename: resFilename,
-                                    adjustHtml: false
-                                }
-                            );
+                            let url = src.startsWith("//") ? "https:" + src : src;
+                            if (!history.has(url)) {
+                                history.add(url);
+
+                                crawler.queue(
+                                    {
+                                        url: url,
+                                        filename: resFilename,
+                                        adjustHtml: false
+                                    }
+                                );
+                            }
                         }
                     }
                 }
@@ -129,7 +135,7 @@ var crawler = new Crawler({
                 links.each(function (i, link) {
                     let href = $(link).attr("href");
                     if (href) {
-                        console.log("link:" + i + "-" + href + " (len=" + href.length + ")");
+                        // console.log("link:" + i + "-" + href + " (len=" + href.length + ")");
 
                         let subUrl = getSubUrl(href);
                         if (subUrl) {
@@ -140,16 +146,19 @@ var crawler = new Crawler({
                                 $(link).attr("href", linkFilename);
                             }
 
-                            let curUrl = res.request.href;
+                            console.log("Eli: add SubURL:" + i + "-" + curUrl + " ~ " + subUrl);
+                            let url = combineUrl(curUrl, subUrl);
+                            if (!history.has(url)) {
+                                history.add(url);
 
-                            console.log("add SubURL:" + i + "-" + curUrl + " ~ " + subUrl);
-                            crawler.queue(
-                                {
-                                    url: combineUrl(curUrl, subUrl),
-                                    filename: linkFilename,
-                                    adjustHtml: false
-                                }
-                            );
+                                crawler.queue(
+                                    {
+                                        url: url,
+                                        filename: linkFilename,
+                                        adjustHtml: false
+                                    }
+                                );
+                            }
                         } else {
                             // filename = null; // to prevent saving
                         }
@@ -175,6 +184,7 @@ const DomainCrawler = {
     start: (entrance) => {
         rootUrl = entrance;
 
+        history.add(entrance);
         crawler.queue({
             url: entrance, // 'https://www.sedna.com/'
             filename: 'index.html', // save entrance as file index.html, so it can be loaded from http-server
