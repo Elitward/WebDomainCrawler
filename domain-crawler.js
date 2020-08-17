@@ -107,7 +107,7 @@ const crawler = new Crawler({
                         if (!subUrl) { // full URL
                             let resFilename = ResourceManager.addResource(src, null);
                             // update src
-                            $(aTag).attr(ATTR_SRC, resFilename);
+                            $(aTag).attr(ATTR_SRC, '/' + resFilename);
 
                             let url = src.startsWith("//") ? "https:" + src : src;
                             if (!history.has(url)) {
