@@ -12,29 +12,6 @@ const ATTR_SRC = 'src';
 
 let rootUrl = '';
 
-const getSubUrl = (Url) => {
-    if (Url) {
-        let url = Url.toLowerCase();
-        if (url === '/') { // self URL
-            return null;
-        } else if (url.startsWith(rootUrl) && url.length > rootUrl.length) { // match to rootUrl & longer
-            return Url.substr(rootUrl.length)
-        } else if (url.startsWith('http')) { // full URL, but not match
-            return null;
-        } else if (url.startsWith('mailto')) { // email
-            return null;
-        } else if (url.startsWith('//')) { // root URL
-            return null;
-        } else if (url.startsWith('/')) {
-            return Url.substr(1); // remove first '/'
-        } else {
-            return Url;
-        }
-    }
-
-    return null;
-}
-
 const firstChar = (str) => {
     return str.substr(0, 1);
 }
@@ -47,13 +24,42 @@ const lastChar = (str) => {
     }
 }
 
+const getSubUrl = (Url) => {
+    if (Url) {
+        let url = Url.toLowerCase();
+        if (url === '/') { // self URL
+            return null;
+        } else if (url.startsWith(rootUrl) && url.length > rootUrl.length) { // match to rootUrl & longer
+            let tail = Url.substr(rootUrl.length);
+            return firstChar(tail) === '/' ? tail : '/' + tail;
+        } else if (url.startsWith('http')) { // full URL, but not match
+            return null;
+        } else if (url.startsWith('mailto')) { // email
+            return null;
+        } else if (url.startsWith('//')) { // root URL
+            return null;
+        } else if (url.startsWith('/')) {
+            // return Url.substr(1); // remove first '/'
+            return Url;
+        } else {
+            return Url;
+        }
+    }
+
+    return null;
+}
+
 const combineUrl = (root, add) => {
-    if (lastChar(root) === '/' && firstChar(add) === '/') {
-        return root + add.substring(1);
-    } else if (lastChar(root) !== '/' && firstChar(add) !== '/') {
-        return root + "/" + add;
+    if (firstChar(add) === '/') {
+        let hostname = (new URL(root)).hostname; // www.sedna.com
+        let domain = root.substr(0, root.indexOf(hostname) + hostname.length);
+        return domain + add;
     } else {
-        return root + add;
+        if (lastChar(root) === '/') {
+            return root + add;
+        } else {
+            return root + "/" + add;
+        }
     }
 }
 
@@ -91,10 +97,10 @@ const crawler = new Crawler({
             let basename = path.basename(res.url);
             let filename = DefaultOutputPath + (res.options.filename ? res.options.filename : basename);
             let curUrl = res.request.href;
-            console.log("URL " + curUrl);
+            console.log("URL " + curUrl, JSON.stringify(res.options));
 
             if (res.options && res.options.adjustHtml) {
-                let $ = res.$;
+                const $ = res.$;
                 // $ is Cheerio by default
                 // console.log($("title").text());
 
@@ -125,49 +131,56 @@ const crawler = new Crawler({
                     }
                 }
 
-                let scripts = $(TAG_SCRIPT);
-                scripts.each(srcProcess);
+                if ($) {
+                    let scripts = $(TAG_SCRIPT);
+                    scripts.each(srcProcess);
 
-                let images = $(TAG_IMG);
-                images.each(srcProcess);
+                    let images = $(TAG_IMG);
+                    images.each(srcProcess);
 
-                let links = $("a");
-                links.each(function (i, link) {
-                    let href = $(link).attr("href");
-                    if (href) {
-                        // console.log("link:" + i + "-" + href + " (len=" + href.length + ")");
+                    let links = $("a");
+                    links.each(function (i, link) {
+                        let href = $(link).attr("href");
+                        if (href) {
+                            // console.log("link:" + i + "-" + href + " (len=" + href.length + ")");
 
-                        let subUrl = getSubUrl(href);
-                        if (subUrl) {
-                            let ext = path.extname(subUrl);
-                            let linkFilename = subUrl;
-                            if (!ext || ext === subUrl) {
-                                linkFilename = subUrl + '.html';
-                                $(link).attr("href", linkFilename);
+                            if (href === "https://www.sedna.com/terms-of-service") {
+                                let stop = 0;
                             }
 
-                            console.log("add SubURL:" + i + "-" + curUrl + " ~ " + subUrl);
-                            let url = combineUrl(curUrl, subUrl);
-                            if (!history.has(url)) {
-                                history.add(url);
+                            let subUrl = getSubUrl(href);
+                            if (subUrl) {
+                                let ext = path.extname(subUrl);
+                                let linkFilename = subUrl;
+                                if (!ext || ext === subUrl) {
+                                    linkFilename = subUrl + '.html';
+                                    linkFilename = linkFilename.replace("?", "_");
+                                    $(link).attr("href", linkFilename);
+                                }
 
-                                crawler.queue(
-                                    {
-                                        url: url,
-                                        filename: linkFilename,
-                                        adjustHtml: false
-                                    }
-                                );
+                                let url = combineUrl(curUrl, subUrl);
+                                console.log("add SubURL:" + i + "-" + curUrl + " ~ " + subUrl + " => " + url);
+                                if (!history.has(url)) {
+                                    history.add(url);
+
+                                    crawler.queue(
+                                        {
+                                            url: url,
+                                            filename: linkFilename,
+                                            adjustHtml: true
+                                        }
+                                    );
+                                }
+                            } else {
+                                // filename = null; // to prevent saving
                             }
-                        } else {
-                            // filename = null; // to prevent saving
                         }
-                    }
-                });
+                    });
 
+                }
                 // save modified HTML
                 if (filename) {
-                    saveFile(filename, $.html());
+                    saveFile(filename, $ ? $.html() : res.body);
                 }
             } else {
                 if (filename) {
