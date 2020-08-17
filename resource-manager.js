@@ -1,5 +1,5 @@
-var path = require("path");
-var md5 = require('md5');
+const path = require("path");
+const md5 = require('md5');
 
 const Resources = [];
 
@@ -8,25 +8,25 @@ const HashUrl = (url, extension) => {
         extension = path.extname(url);
     }
 
-    var urlMd5 = md5(url);
-    var hash = urlMd5 + extension;
+    let urlMd5 = md5(url);
+    let hash = urlMd5 + extension;
     return hash;
 }
 
 const ResourceManager = {
     addResource: (url, extension) => {
-        var existing = Resources[url];
+        let existing = Resources[url];
         if (existing) {
             return existing;
         } else {
-            var hash = HashUrl(url, extension);
+            let hash = HashUrl(url, extension);
             Resources[url] = hash;
             return hash;
         }
     },
 
     getResource: (url) => { // return the MD5 of that resource
-        var existing = Resources[url];
+        let existing = Resources[url];
         return existing ? existing : null;
     }
 }

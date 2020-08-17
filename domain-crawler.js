@@ -14,7 +14,7 @@ var rootUrl = '';
 
 const getSubUrl = (Url) => {
     if (Url) {
-        var url = Url.toLowerCase();
+        let url = Url.toLowerCase();
         if (url === '/') { // self URL
             return null;
         } else if (url.startsWith(rootUrl) && url.length > rootUrl.length) { // match to rootUrl & longer
@@ -57,6 +57,28 @@ const combineUrl = (root, add) => {
     }
 }
 
+const saveFile = (filename, data) => {
+    if (filename.indexOf('sedna-and-how-to-succeed-at-remote-working') > 0) {
+        let stop = 0;
+    }
+    const ensureDirectoryExistence = (dirname) => {
+        if (fs.existsSync(dirname)) {
+            return true;
+        }
+
+        let parentdir = path.dirname(dirname);
+        ensureDirectoryExistence(parentdir);
+        fs.mkdirSync(dirname);
+    }
+
+    let dirname = path.dirname(filename);
+    ensureDirectoryExistence(dirname);
+
+    let wstream = fs.createWriteStream(filename)
+    wstream.write(data);
+    wstream.end();
+}
+
 var crawler = new Crawler({
     encoding: null,
     maxonnections: 10,
@@ -67,22 +89,22 @@ var crawler = new Crawler({
         if (error) {
             console.log(error);
         } else {
-            var basename = path.basename(res.url);
-            var filename = DefaultOutputPath + (res.options.filename ? res.options.filename : basename);
+            let basename = path.basename(res.url);
+            let filename = DefaultOutputPath + (res.options.filename ? res.options.filename : basename);
 
             if (res.options && res.options.adjustHtml) {
-                var $ = res.$;
+                let $ = res.$;
                 // $ is Cheerio by default
                 console.log($("title").text());
 
                 const srcProcess = (i, aTag) => {
-                    var src = $(aTag).attr(ATTR_SRC);
+                    let src = $(aTag).attr(ATTR_SRC);
                     if (src) {
                         console.log("aTag:" + i + "-" + src + " (len=" + src.length + ")");
 
-                        var subUrl = getSubUrl(src);
+                        let subUrl = getSubUrl(src);
                         if (!subUrl) { // full URL
-                            var resFilename = ResourceManager.addResource(src, null);
+                            let resFilename = ResourceManager.addResource(src, null);
                             // update src
                             $(aTag).attr(ATTR_SRC, resFilename);
 
@@ -97,28 +119,28 @@ var crawler = new Crawler({
                     }
                 }
 
-                var scripts = $(TAG_SCRIPT);
+                let scripts = $(TAG_SCRIPT);
                 scripts.each(srcProcess);
 
-                var images = $(TAG_IMG);
+                let images = $(TAG_IMG);
                 images.each(srcProcess);
 
-                var links = $("a");
+                let links = $("a");
                 links.each(function (i, link) {
-                    var href = $(link).attr("href");
+                    let href = $(link).attr("href");
                     if (href) {
                         console.log("link:" + i + "-" + href + " (len=" + href.length + ")");
 
-                        var subUrl = getSubUrl(href);
+                        let subUrl = getSubUrl(href);
                         if (subUrl) {
-                            var ext = path.extname(subUrl);
-                            var linkFilename = subUrl;
+                            let ext = path.extname(subUrl);
+                            let linkFilename = subUrl;
                             if (!ext || ext === subUrl) {
                                 linkFilename = subUrl + '.html';
                                 $(link).attr("href", linkFilename);
                             }
 
-                            var curUrl = res.request.href;
+                            let curUrl = res.request.href;
 
                             console.log("add SubURL:" + i + "-" + curUrl + " ~ " + subUrl);
                             crawler.queue(
@@ -136,15 +158,11 @@ var crawler = new Crawler({
 
                 // save modified HTML
                 if (filename) {
-                    var wstream = fs.createWriteStream(filename);
-                    wstream.write($.html());
-                    wstream.end();
+                    saveFile(filename, $.html());
                 }
             } else {
                 if (filename) {
-                    var wstream = fs.createWriteStream(filename, { encoding: 'binary' })
-                    wstream.write(res.body);
-                    wstream.end();
+                    saveFile(filename, res.body);
                 }
             }
 
