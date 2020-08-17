@@ -24,8 +24,28 @@ const GetResourceFilename = (url) => {
     // return 'resource/' + basename + extension;
 }
 
+const IsSubUrl = (Url) => {
+    if (Url) {
+        var url = Url.toLowerCase();
+        if (url==='/') { // self URL
+            return false;
+        }
+        else if (url.startsWith('http')) { // full URL
+            return false;
+        }
+        else if (url.startsWith('//')) { // root URL
+            return false;
+        }
+        else if (url.startsWith('/')) {
+            return true;
+        } else {
+            return true; // to check again
+        }
+    }
+}
+
 var c = new Crawler({
-    encoding:null,
+    encoding: null,
     maxConnections: 10,
 
     userAgent: UserAgentName, // to avoid "400 Bad Request" from SEDNA
@@ -43,7 +63,7 @@ var c = new Crawler({
                 // $ is Cheerio by default
                 //a lean implementation of core jQuery designed specifically for the server
                 console.log($("title").text());
-    
+
                 var scripts = $("script");
                 scripts.each(function (i, script) {
                     var src = $(script).attr("src");
@@ -84,19 +104,45 @@ var c = new Crawler({
                     }
                 });
 
-                // direct save original content
+                var links = $("a");
+                links.each(function (i, link) {
+                    var href = $(link).attr("href");
+                    if (href) {
+                        console.log("link:" + i + "-" + href + " (len=" + href.length + ")");
+
+                        if (IsSubUrl(href)) {
+                            var ext = path.extname(href);
+                            var linkFilename = href;
+                            if(!ext || ext===href){
+                                linkFilename = href + '.html';
+                                $(link).attr("href", linkFilename);
+                            }
+
+                            var curUrl = res.request.href;
+
+                            console.log("add SubURL:" + i + "-" + curUrl + " ~ " + href);
+                            c.queue(
+                                {
+                                    url: curUrl + href.substring(1),
+                                    filename: linkFilename,
+                                    adjustHtml: false
+                                }
+                            );
+                        } else {
+                            // filename = null; // to prevent saving
+                        }
+                    }
+                });
+
+                // save modified HTML
                 if (filename) {
                     var wstream = fs.createWriteStream(filename);
                     wstream.write($.html());
                     wstream.end();
                 }
             } else {
-                // direct save original content
-                if(filename.indexOf('05c93ec2a0fe98201521103e900bcfcd')>0){
-                    var x = 0;
-                }
                 if (filename) {
-                    var wstream = fs.createWriteStream(filename, {encoding: 'binary'}) // type BufferEncoding = "ascii" | "utf8" | "utf-8" | "utf16le" | "ucs2" | "ucs-2" | "base64" | "latin1" | "binary" | "hex";
+                    var wstream = fs.createWriteStream(filename, { encoding: 'binary' }) // type BufferEncoding = "ascii" | "utf8" | "utf-8" | "utf16le" | "ucs2" | "ucs-2" | "base64" | "latin1" | "binary" | "hex";
                     wstream.write(res.body);
                     wstream.end();
                 }

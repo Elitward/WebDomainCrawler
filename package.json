@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/Elitward/WebDomainCrawler#readme",
   "dependencies": {
-    "crawler": "^1.2.2"
+    "crawler": "^1.2.2",
+    "md5": "^2.3.0"
   }
 }
