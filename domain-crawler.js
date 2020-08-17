@@ -91,7 +91,7 @@ const crawler = new Crawler({
             let basename = path.basename(res.url);
             let filename = DefaultOutputPath + (res.options.filename ? res.options.filename : basename);
             let curUrl = res.request.href;
-            console.log("Eli: URL " + curUrl);
+            console.log("URL " + curUrl);
 
             if (res.options && res.options.adjustHtml) {
                 let $ = res.$;
@@ -146,7 +146,7 @@ const crawler = new Crawler({
                                 $(link).attr("href", linkFilename);
                             }
 
-                            console.log("Eli: add SubURL:" + i + "-" + curUrl + " ~ " + subUrl);
+                            console.log("add SubURL:" + i + "-" + curUrl + " ~ " + subUrl);
                             let url = combineUrl(curUrl, subUrl);
                             if (!history.has(url)) {
                                 history.add(url);
